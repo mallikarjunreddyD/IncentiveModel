@@ -83,10 +83,10 @@ func getOperatingCost(rF float64, organisation int) float64 {
 }
 
 func getR(organisation int) float64 {
-	maxPayOff := 0.0
+	maxPayOff := float64(math.MinInt64)
 	maxPayAt := 0.0
 	for rF := minR; rF <= maxR; rF++ {
-		payOff := getUtility(rF, organisation) - getCost(rF, organisation) //- penality*getPenalityTerm()
+		payOff := getUtility(rF, organisation) - getCost(rF, organisation) - penality*getPenalityTerm() + PiVector[organisation]
 		if payOff > maxPayOff {
 			maxPayOff = payOff
 			maxPayAt = rF
@@ -152,3 +152,6 @@ func getPenalityTerm() float64 {
 // 1. payoff graph
 // 2. rF graph
 // 3. pi graph
+
+//RVector =  [9.101890574815503 9.103039517738031 8.890683479012406 7.890358669983052 8.105467921953482 9.105976599550258]
+//PiVector=  [4.817298068381877 6.312069235568546 10.386791447209443 7.905450587711915 7.595330297660614 5.237994436099528]
