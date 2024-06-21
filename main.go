@@ -6,14 +6,17 @@ import (
 )
 
 var RVector [6]float64 = [6]float64{60, 35, 37, 34, 41, 50}
-var PiVector [6]float64 = [6]float64{6, 7, 8, 8, 7, 6}
+var PiVector [6]float64 = [6]float64{60, 70, 80, -80, -70, -60}
 var UnitRevenue [6]float64 = [6]float64{12, 11, 10, 8, 9, 10}
 var convergeFlags [6]bool = [6]bool{false, false, false, false, false, false}
 
-const S float64 = 600
-const D float64 = 0.01
+var S [6]float64 = [6]float64{300, 500, 400, 700, 300, 500}
+var D [6]float64 = [6]float64{0.04, 0.05, 0.06, 0.03, 0.07, 0.05}
+
+// S*D = 12, 25, 24, 21, 21, 25
+
 const K float64 = 5
-const T float64 = 60
+const T float64 = 200
 const TUL float64 = 0.0038
 const TDL float64 = 0.0020
 const e0 float64 = 9.82
@@ -22,10 +25,11 @@ const uploadCost float64 = 0.0000000232
 const downloadCost float64 = 0.0000000232
 const investmentCost float64 = 0.003666
 const minR float64 = 0
-const maxR float64 = 100      //Max of R vector // not effecting the output
-const penality float64 = 0.1  //effects the output
-const stepsize float64 = 0.1  //effects the output
-const threshold float64 = 0.1 //effects the output
+const maxR float64 = 100         //Max of R vector // not effecting the output
+const penality float64 = 0.1     //effects the output
+const stepsize float64 = 0.1     //effects the output
+const threshold float64 = 0.0001 //effects the output
+const lamda float64 = 1000       // for new model
 
 func main() {
 	j := 0
@@ -33,9 +37,10 @@ func main() {
 		globalConv := true
 		fmt.Println("round = ", j)
 		for i, _ := range RVector {
-			r := getR(i)                          //Step 6
-			newR := getNewR(r, RVector[i])        //Step 7
-			newPi := getNewPi(PiVector[i], i)     //Step 8
+			r := getR(i)                   //Step 6
+			newR := getNewR(r, RVector[i]) //Step 7
+			//newPi := getNewPi(PiVector[i], i) //Step 8
+			newPi := getNewModelPi(r, i)          //new step 8
 			if (math.Abs(newR - r)) > threshold { //Step 9
 				RVector[i] = newR
 				PiVector[i] = newPi
@@ -59,8 +64,16 @@ func main() {
 		}
 		fmt.Println("RVector = ", RVector)
 		fmt.Println("PiVector= ", PiVector)
+		piSum := 0.0
+		for _, pi := range PiVector {
+			piSum += pi
+		}
+		fmt.Println("Sum of Pi Vector =", piSum)
+
 	}
 }
+
+// It does not depend on the organisation and also constant for an rF value
 func getUtility(rF float64, organisation int) float64 {
 	er0 := e0 / e1
 	erF := e0 / (e1 + (K * rF))
@@ -79,7 +92,7 @@ func getInvestmentCost(rF float64, organisation int) float64 {
 }
 
 func getOperatingCost(rF float64, organisation int) float64 {
-	return 0.00004833 * getMaxTime(rF, organisation) * getFNought(rF, organisation) * getFNought(rF, organisation) * S * D * K * rF
+	return 0.00004833 * getMaxTime(rF, organisation) * getFNought(rF, organisation) * getFNought(rF, organisation) * S[organisation] * D[organisation] * K * rF
 }
 
 func getR(organisation int) float64 {
@@ -92,12 +105,23 @@ func getR(organisation int) float64 {
 			maxPayAt = rF
 		}
 	}
-	fmt.Printf("Max PayOff is %f, and max Pay at %f \n", maxPayOff, maxPayAt)
+	//fmt.Printf("Max PayOff is %f, and max Pay at %f \n", maxPayOff, maxPayAt)
 	return maxPayAt
 }
 func getNewR(rComputed float64, rOld float64) float64 {
 	newR := rOld + penality*(rComputed-rOld)
 	return newR
+}
+
+func getNewModelPi(r float64, n int) float64 {
+	pi := 0.0
+	for i, _ := range RVector {
+		if i == n {
+			continue
+		}
+		pi += (lamda * getInvestmentCost(r, n)) - (lamda * getInvestmentCost(RVector[i], i))
+	}
+	return pi
 }
 func getNewPi(oldPi float64, n int) float64 {
 	i := n - 2
@@ -121,11 +145,11 @@ func getRAverage(rF float64, organisation int) float64 {
 	return float64(sum) / float64(len(RVector))
 }
 func getFNought(rF float64, organisation int) float64 {
-	return S * D * K / ((T / getRAverage(rF, organisation)) - TUL - TDL)
+	return S[organisation] * D[organisation] * K / ((T / getRAverage(rF, organisation)) - TUL - TDL)
 }
 
 func getMaxTime(rF float64, organisation int) float64 {
-	return ((S*D*K)/getFNought(rF, organisation) + TUL + TDL)
+	return ((S[organisation]*D[organisation]*K)/getFNought(rF, organisation) + TUL + TDL)
 }
 
 func getPenalityTerm() float64 {
@@ -147,11 +171,3 @@ func getPenalityTerm() float64 {
 	}
 	return sum
 }
-
-// For every organisation
-// 1. payoff graph
-// 2. rF graph
-// 3. pi graph
-
-//RVector =  [9.101890574815503 9.103039517738031 8.890683479012406 7.890358669983052 8.105467921953482 9.105976599550258]
-//PiVector=  [4.817298068381877 6.312069235568546 10.386791447209443 7.905450587711915 7.595330297660614 5.237994436099528]
